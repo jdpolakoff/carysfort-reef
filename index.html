@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en" xml:lang="en" xmlns= "http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset='utf-8' />
+    <title>Carysfort Reef</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <meta name="google" content="notranslate">
+    <meta http-equiv="Content-Language" content="en">
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.5.0/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.5.0/mapbox-gl.css' rel='stylesheet' />
+    <script src="https://unpkg.com/intersection-observer@0.5.1/intersection-observer.js"></script>
+    <script src="https://unpkg.com/scrollama"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+    <script src="scroll-story.js"></script>
+
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+        body {
+            margin:0;
+            padding:0;
+            font-family: sans-serif;
+        }
+        a, a:hover, a:visited {
+            color: #0071bc;
+        }
+        #map {
+            top:0;
+            height: 100vh;
+            width:100vw;
+            position: fixed;
+            z-index: -5;
+        }
+        #header {
+            margin: 3vh auto;
+            width: 90vw;
+            padding: 2vh;
+            text-align: center;
+        }
+        #footer {
+            width: 100%;
+            min-height: 5vh;
+            padding-top: 2vh;
+            padding-bottom: 2vh;
+            text-align: center;
+            line-height: 25px;
+            font-size: 13px;
+        }
+        #features {
+            padding-top: 10vh;
+            padding-bottom: 10vh;
+            z-index: 100;
+        }
+        .centered {
+            width: 50vw;
+            margin: 0 auto;
+        }
+        .lefty {
+            width: 33vw;
+            margin-left: 5vw;
+        }
+        .righty {
+            width: 33vw;
+            margin-left: 62vw;
+        }
+        .light {
+            color: #fafafa;
+            background-color: #0C1425;
+        }
+        .dark {
+            color: #fafafa;
+            background-color: #444;
+        }
+        .step {
+            padding-bottom: 50vh;
+            /* margin-bottom: 10vh; */
+            opacity: 0.25;
+        }
+        .step.active {
+            opacity: 0.9;
+        }
+
+        .step div {
+            padding:  25px 50px;
+            line-height: 25px;
+            font-size: 13px;
+        }
+
+        .step img {
+            width: 100%;
+        }
+
+        @media (max-width: 750px) {
+            #features {
+                width: 90vw;
+                margin: 0 auto;
+            }
+        }
+
+        body {
+          font-family: 'helvetica', sans-serif;
+          color: #ffffff;
+        }
+        p {
+          line-height: 1.4;
+          font-size:1rem;
+        }
+
+      .scrollStoryItem .innerContent {
+          position:sticky;
+          position: -webkit-sticky; /* Safari */
+          top:0;
+        }
+
+      .scrollStoryItem.inviewport {
+        visibility: hidden!important;
+      }
+
+      .scrollStoryItem.active {
+          visibility: visible!important;
+          top:0;
+      }
+
+      .textWrapper {
+        position:relative;
+        height: 100vh;
+        padding:5rem 0;
+        width:50%;
+        left:50%;
+      }
+
+      .textWrapper p {
+        font-size:1.2rem;
+      }
+
+      .newFooter {
+        font-weight: 600;
+      }
+
+      #youtube-icon {height: 46px;
+    border-radius: 50%;
+  }
+
+  .years span {
+    margin:.5rem;
+    font-weight: 600;
+    font-size:1.3rem;
+    transition:.3s;
+  }
+
+  .years a {
+    color:#f3f3f3!important;
+    text-decoration:none;
+    margin-top:1rem;
+  }
+
+  #yearsContainer {position:fixed;left:0;top:40%;display:flex;flex-direction:column;}
+
+
+        /* Fix issue on mobile browser where scroll breaks  */
+        .mapboxgl-canvas-container.mapboxgl-touch-zoom-rotate.mapboxgl-touch-drag-pan,
+        .mapboxgl-canvas-container.mapboxgl-touch-zoom-rotate.mapboxgl-touch-drag-pan .mapboxgl-canvas {
+            touch-action: unset;
+        }
+
+        </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="story"></div>
+<script src="./config.js"></script>
+<script>
+
+var layerTypes = {
+    'fill': ['fill-opacity'],
+    'line': ['line-opacity'],
+    'circle': ['circle-opacity', 'circle-stroke-opacity'],
+    'symbol': ['icon-opacity', 'text-opacity'],
+    'raster': ['raster-opacity'],
+    'fill-extrusion': ['fill-extrusion-opacity']
+}
+
+var alignments = {
+    'left': 'lefty',
+    'center': 'centered',
+    'right': 'righty'
+}
+
+function getLayerPaintType(layer) {
+    var layerType = map.getLayer(layer).type;
+    return layerTypes[layerType];
+}
+
+function setLayerOpacity(layer) {
+    var paintProps = getLayerPaintType(layer.layer);
+    paintProps.forEach(function(prop) {
+        map.setPaintProperty(layer.layer, prop, layer.opacity);
+    });
+}
+
+var story = document.getElementById('story');
+var features = document.createElement('div');
+features.classList.add(alignments[config.alignment]);
+features.setAttribute('id', 'features');
+
+var header = document.createElement('div');
+
+if (config.title) {
+    var titleText = document.createElement('h1');
+    titleText.innerText = config.title;
+    header.appendChild(titleText);
+}
+
+if (config.subtitle) {
+    var subtitleText = document.createElement('h2');
+    subtitleText.innerText = config.subtitle;
+    header.appendChild(subtitleText);
+}
+
+if (config.byline) {
+    var bylineText = document.createElement('p');
+    bylineText.innerText = config.byline;
+    header.appendChild(bylineText);
+}
+
+if (header.innerText.length > 0) {
+    header.classList.add(config.theme);
+    header.setAttribute('id', 'header');
+    story.appendChild(header);
+}
+
+config.chapters.forEach((record, idx) => {
+    var container = document.createElement('div');
+    var chapter = document.createElement('div');
+
+    if (record.title) {
+        var title = document.createElement('h3');
+        title.innerText = record.title;
+        chapter.appendChild(title);
+    }
+
+    if (record.image) {
+        var image = new Image();
+        image.src = record.image;
+        chapter.appendChild(image);
+    }
+
+    if (record.description) {
+        var story = document.createElement('p');
+        story.innerHTML = record.description;
+        chapter.appendChild(story);
+    }
+
+    container.setAttribute('id', record.id);
+    container.classList.add('step');
+    if (idx === 0) {
+        container.classList.add('active');
+    }
+
+    chapter.classList.add(config.theme);
+    container.appendChild(chapter);
+    features.appendChild(container);
+});
+
+story.appendChild(features);
+
+var footer = document.createElement('div');
+
+if (config.footer) {
+    var footerText = document.createElement('p');
+    footerText.innerHTML = config.footer;
+    footer.appendChild(footerText);
+}
+
+if (footer.innerText.length > 0) {
+    footer.classList.add('newFooter');
+    footer.setAttribute('id', 'footer');
+    story.appendChild(footer);
+}
+
+mapboxgl.accessToken = config.accessToken;
+
+const transformRequest = (url) => {
+    const hasQuery = url.indexOf("?") !== -1;
+    const suffix = hasQuery ? "&pluginName=journalismScrollytelling" : "?pluginName=journalismScrollytelling";
+    return {
+      url: url + suffix
+    }
+}
+
+var map = new mapboxgl.Map({
+    container: 'map',
+    style: config.style,
+    center: config.chapters[0].location.center,
+    zoom: config.chapters[0].location.zoom,
+    bearing: config.chapters[0].location.bearing,
+    pitch: config.chapters[0].location.pitch,
+    scrollZoom: false,
+    transformRequest: transformRequest
+});
+
+var marker = new mapboxgl.Marker();
+if (config.showMarkers) {
+    marker.setLngLat(config.chapters[0].location.center).addTo(map);
+}
+
+// instantiate the scrollama
+var scroller = scrollama();
+
+map.on("load", function() {
+    // setup the instance, pass callback functions
+    scroller
+    .setup({
+        step: '.step',
+        offset: 0.5,
+        progress: true
+    })
+    .onStepEnter(response => {
+        var chapter = config.chapters.find(chap => chap.id === response.element.id);
+        response.element.classList.add('active');
+        map.flyTo(chapter.location);
+        if (config.showMarkers) {
+            marker.setLngLat(chapter.location.center);
+        }
+        if (chapter.onChapterEnter.length > 0) {
+            chapter.onChapterEnter.forEach(setLayerOpacity);
+        }
+    })
+    .onStepExit(response => {
+        var chapter = config.chapters.find(chap => chap.id === response.element.id);
+        response.element.classList.remove('active');
+        if (chapter.onChapterExit.length > 0) {
+            chapter.onChapterExit.forEach(setLayerOpacity);
+        }
+    });
+});
+
+// setup resize event
+window.addEventListener('resize', scroller.resize);
+
+
+</script>
+
+<div id="container">
+
+
+  <a name="1975"><div id="1975" data-year="" data-text="Lorem Ipsum" class="story"></a>
+
+      <div class="innerContent" style="display: flex;flex-direction: column; justify-content: space-between; align-items:center; visibility:visible; background: url('https://media.giphy.com/media/Y3qyZn0BEa0gYkP4Gw/giphy.gif');background-size: cover; min-height: 100vh; width:100vw;">
+      </div>
+    <div class="textWrapper">
+      <h2 class="yearHere">1975</h2>
+
+      <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+      <p>Sed tincidunt pharetra condimentum. Mauris dapibus bibendum bibendum.</p>
+      <p>Cras sed lorem non tortor posuere molestie. Pellentesque consectetur odio quis tellus consequat.</p>
+      <p>Vitae rutrum libero tempus. In eros leo, sodales et convallis consectetur, dignissim eu dolor. Duis a lacus maximus</p>
+      <p>Ullamcorper nisl et, luctus ante. In commodo tincidunt dui, sit amet sodales justo. Sed sodales congue ex vel laoreet.</p>
+      <p>Nullam tristique, odio vitae aliquet iaculis.</p>
+      </div>
+  </div>
+
+  <a name="1985"><div id="1985" data-year="1985" data-text="Lorem Ipsum" class="story"></a>
+    <div class="innerContent" style="visibility:visible; background: url('1985-1.png');background-size: cover; min-height: 100vh; width:100vw;">
+    </div>
+    <div class="textWrapper">
+      <h2 class="yearHere">1985</h2>
+      <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+      <p>Sed tincidunt pharetra condimentum. Mauris dapibus bibendum bibendum.</p>
+      <p>Cras sed lorem non tortor posuere molestie. Pellentesque consectetur odio quis tellus consequat.</p>
+      <p>Vitae rutrum libero tempus. In eros leo, sodales et convallis consectetur, dignissim eu dolor. Duis a lacus maximus</p>
+      <p>Ullamcorper nisl et, luctus ante. In commodo tincidunt dui, sit amet sodales justo. Sed sodales congue ex vel laoreet.</p>
+      <p>Nullam tristique, odio vitae aliquet iaculis.</p>
+      </div>
+  </div>
+
+  <a name="1995"><div id="1995" data-year="1995" data-text="Lorem Ipsum" class="story"></a>
+    <div class="innerContent" style="visibility:visible; background: url('1995-1.png');background-size: cover; min-height: 100vh; width:100vw;">
+    </div>
+    <div class="textWrapper">
+      <h2 class="yearHere">1995</h2>
+      <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+      <p>Sed tincidunt pharetra condimentum. Mauris dapibus bibendum bibendum.</p>
+      <p>Cras sed lorem non tortor posuere molestie. Pellentesque consectetur odio quis tellus consequat.</p>
+      <p>Vitae rutrum libero tempus. In eros leo, sodales et convallis consectetur, dignissim eu dolor. Duis a lacus maximus</p>
+      <p>Ullamcorper nisl et, luctus ante. In commodo tincidunt dui, sit amet sodales justo. Sed sodales congue ex vel laoreet.</p>
+      <p>Nullam tristique, odio vitae aliquet iaculis.</p>
+      </div>
+  </div>
+
+  <a name="2004"><div id="2004" data-year="2004" data-text="Lorem Ipsum" class="story"></a>
+    <div class="innerContent" style="visibility:visible; background: url('2004.png');background-size: cover; min-height: 100vh; width:100vw;">
+    </div>
+    <div class="textWrapper">
+      <h2 class="yearHere">2004</h2>
+      <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+      <p>Sed tincidunt pharetra condimentum. Mauris dapibus bibendum bibendum.</p>
+      <p>Cras sed lorem non tortor posuere molestie. Pellentesque consectetur odio quis tellus consequat.</p>
+      <p>Vitae rutrum libero tempus. In eros leo, sodales et convallis consectetur, dignissim eu dolor. Duis a lacus maximus</p>
+      <p>Ullamcorper nisl et, luctus ante. In commodo tincidunt dui, sit amet sodales justo. Sed sodales congue ex vel laoreet.</p>
+      <p>Nullam tristique, odio vitae aliquet iaculis.</p>
+      </div>
+  </div>
+
+  <a name="2014"><div id="2014" data-year="2014" data-text="Lorem Ipsum" class="story"></a>
+    <div class="innerContent" style="visibility:visible; background: url('https://media.giphy.com/media/QsDuCf1HY6b4gvmwvR/giphy.gif');background-size: cover; min-height: 100vh; width:100vw;">
+    </div>
+    <div class="textWrapper">
+      <h2 class="yearHere">2014</h2>
+      <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+      <p>Sed tincidunt pharetra condimentum. Mauris dapibus bibendum bibendum.</p>
+      <p>Cras sed lorem non tortor posuere molestie. Pellentesque consectetur odio quis tellus consequat.</p>
+      <p>Vitae rutrum libero tempus. In eros leo, sodales et convallis consectetur, dignissim eu dolor. Duis a lacus maximus</p>
+      <p>Ullamcorper nisl et, luctus ante. In commodo tincidunt dui, sit amet sodales justo. Sed sodales congue ex vel laoreet.</p>
+      <p><strong><a style="color:#fff!important; text-decoration:none;" href="https://www.youtube.com/watch?v=TCPJE7UE6sA" target="_blank">Watch "A Swim Through Time on Carysfort Reef" on YouTube</a></strong></p>
+      </div>
+  </div>
+
+
+</div>
+
+
+
+<script>
+
+  // Instantiation
+  $(function(){
+
+    $(document).ready(function(){
+      if (!$("#container").attr('class').includes('scrollStoryActive')) {
+        $('.years').hide()
+      }
+    })
+
+    $("#container").scrollStory({
+      containerinactive: function() {
+        $('.years').hide()
+      },
+      containeractive: function() {
+        $('.years').show()
+      },
+      itemfocus: function(ev, item){
+        if (item.el.attr('class').includes('active')) {
+          $('.years span').each(function(index, span){
+            if (span.textContent === item.id) {
+              $(span).css('font-size', '1.5rem')
+            }
+          })
+          $('.years').show()
+        }
+      },
+      itemblur: function(ev, item){
+        if (!item.el.attr('class').includes('active') && item.id === '1975') {
+          $('years').hide()
+        }
+        $('.years span').each(function(index, span){
+          if (span.textContent === item.id) {
+            $(span).css('font-size', '1.3rem')
+          }
+        })
+      }
+    })
+
+  });
+</script>
+
+<div id="yearsContainer" class="years">
+  <a href="#1975"><span>1975</span></a>
+  <a href="#1985"><span>1985</span></a>
+  <a href="#1995"><span>1995</span></a>
+  <a href="#2004"><span>2004</span></a>
+  <a href="#2014"><span>2014</span></a>
+</div>
+
+<div>
+  <div style="position:fixed;margin-bottom: 2rem;bottom: 0; right: 100px;" data-video="0BCPe7gauok"
+         data-autoplay="0"
+         data-loop="1"
+         id="youtube-audio">
+         <script src="https://www.youtube.com/iframe_api"></script>
+         <script src="yt.js"></script>
+  </div>
+
+</div>
+</body>
+</html>
